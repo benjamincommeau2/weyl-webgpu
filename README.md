@@ -12,7 +12,7 @@ The project is intentionally being developed incrementally so that every numeric
 
 We want to numerically propagate a two-component Weyl spinor
 
-\[
+$$
 \psi(\mathbf{x},t)
 ==================
 
@@ -20,7 +20,7 @@ We want to numerically propagate a two-component Weyl spinor
 \psi_+(\mathbf{x},t) \
 \psi_-(\mathbf{x},t)
 \end{pmatrix}
-\]
+$$
 
 under a Weyl Hamiltonian of the approximate form
 
