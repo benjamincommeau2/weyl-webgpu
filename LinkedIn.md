@@ -1,5 +1,7 @@
 # 2026/08/17
 
+https://www.linkedin.com/feed/update/urn:li:activity:7495189884303925249/
+
 WebGPU Dirac/Weyl Simulator — When the Fast Discretization Changes the Physics
 
 
@@ -103,6 +105,8 @@ References:
 #ScientificComputing #WebGPU #ComputationalPhysics
 
 # 2026/08/19
+
+https://www.linkedin.com/feed/update/urn:li:share:7495863937259966464/
 
 WebGPU Weyl Simulator: Moving From Numerical Design to a Reproducible GPU Project
 
