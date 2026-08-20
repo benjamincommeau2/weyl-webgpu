@@ -1232,3 +1232,639 @@ After that, the uploaded data should eventually be read back and verified before
 This project is licensed under the MIT License.
 
 See the repository's `LICENSE` file for details.
+
+## Chebyshev Truncation and Bessel-Tail Error Bound
+
+The Chebyshev propagator requires an infinite series in principle, so a practical implementation needs a criterion for deciding how many Bessel/Chebyshev terms to retain.
+
+For a Hamiltonian whose spectrum has been rescaled into the interval `[-1, 1]`, define
+
+```math
+\widetilde H = \frac{H-cI}{a},
+```
+
+where
+
+```math
+a = \frac{E_{\max}-E_{\min}}{2},
+```
+
+and
+
+```math
+c = \frac{E_{\max}+E_{\min}}{2}.
+```
+
+The propagator is then written as
+
+```math
+e^{-iH\Delta t}
+=
+e^{-ic\Delta t}
+\left[
+J_0(z)T_0(\widetilde H)
++
+2\sum_{n=1}^{\infty}
+(-i)^n
+J_n(z)
+T_n(\widetilde H)
+\right],
+```
+
+with
+
+```math
+z = a\Delta t.
+```
+
+The dimensionless number `z = a Δt` is the important quantity controlling the required Chebyshev order.
+
+---
+
+### Truncating the Series
+
+Suppose the series is retained through order `M`.
+
+The omitted remainder is
+
+```math
+R_M
+=
+2
+\sum_{n=M+1}^{\infty}
+(-i)^n
+J_n(z)
+T_n(\widetilde H).
+```
+
+If the spectral scaling is correct, then every eigenvalue of the rescaled Hamiltonian satisfies
+
+```math
+\lambda(\widetilde H)\in[-1,1].
+```
+
+Chebyshev polynomials obey
+
+```math
+|T_n(x)|\le 1
+\qquad
+\text{for}
+\qquad
+x\in[-1,1].
+```
+
+Therefore the norm of the omitted part can be bounded by
+
+```math
+\|R_M\|
+\le
+2
+\sum_{n=M+1}^{\infty}
+|J_n(z)|.
+```
+
+This is the Bessel-tail error associated with truncating the Chebyshev expansion.
+
+---
+
+### Bounding the Bessel Functions Without Computing All Orders
+
+For real `z` and nonnegative integer `n`, the Bessel functions satisfy the bound
+
+```math
+|J_n(z)|
+\le
+\frac{(|z|/2)^n}{n!}.
+```
+
+This can be obtained from an integral representation of the Bessel function by taking the absolute value of the oscillatory exponential.
+
+Define
+
+```math
+x=\frac{|z|}{2}.
+```
+
+Then
+
+```math
+|J_n(z)|
+\le
+\frac{x^n}{n!}.
+```
+
+The Chebyshev remainder therefore satisfies
+
+```math
+\|R_M\|
+\le
+2
+\sum_{n=M+1}^{\infty}
+\frac{x^n}{n!}.
+```
+
+The right-hand side is an exponential-series tail.
+
+This gives a rigorous way to certify the neglected Bessel terms without evaluating infinitely many Bessel functions.
+
+---
+
+### Bounding the Infinite Exponential Tail
+
+Define
+
+```math
+t_n=\frac{x^n}{n!}.
+```
+
+Successive terms satisfy
+
+```math
+\frac{t_{n+1}}{t_n}
+=
+\frac{x}{n+1}.
+```
+
+Let the first omitted order be
+
+```math
+m=M+1.
+```
+
+For every term after `m`,
+
+```math
+\frac{t_{n+1}}{t_n}
+\le
+\frac{x}{m+1}.
+```
+
+provided that
+
+```math
+m+1>x.
+```
+
+The remaining terms can therefore be bounded by a geometric series:
+
+```math
+\sum_{n=m}^{\infty}t_n
+\le
+\frac{t_m}
+{1-\frac{x}{m+1}}.
+```
+
+Substituting `m = M + 1` gives the practical analytic truncation bound
+
+```math
+\boxed{
+\|R_M\|
+\le
+\frac{
+2x^{M+1}
+}{
+(M+1)!
+\left(
+1-\frac{x}{M+2}
+\right)
+}
+}
+```
+
+where
+
+```math
+x=\frac{|a\Delta t|}{2}.
+```
+
+This bound is conservative. The actual Bessel tail is generally smaller.
+
+It is useful because the implementation can evaluate a simple finite expression and obtain a mathematically certified upper bound on every Bessel term that has not been computed.
+
+---
+
+## Example for the Current Grid and Timestep Strategy
+
+For the free three-dimensional Weyl Hamiltonian,
+
+```math
+H_K
+=
+v\boldsymbol{\sigma}\cdot\mathbf{k},
+```
+
+the FFT grid has approximately
+
+```math
+|k_x|_{\max}
+=
+|k_y|_{\max}
+=
+|k_z|_{\max}
+\approx
+\frac{\pi}{\Delta x}.
+```
+
+The largest magnitude of the three-dimensional momentum vector is therefore approximately
+
+```math
+|\mathbf{k}|_{\max}
+\approx
+\frac{\sqrt{3}\pi}{\Delta x}.
+```
+
+Because the eigenvalues of
+
+```math
+\boldsymbol{\sigma}\cdot\mathbf{k}
+```
+
+are
+
+```math
+\pm|\mathbf{k}|,
+```
+
+the kinetic spectral half-width is approximately
+
+```math
+a
+\approx
+v\frac{\sqrt{3}\pi}{\Delta x}.
+```
+
+The current timestep idea is to let the wave travel approximately one lattice spacing per frozen-Hamiltonian interval:
+
+```math
+\Delta t
+\approx
+\frac{\Delta x}{v}.
+```
+
+Therefore
+
+```math
+z
+=
+a\Delta t
+\approx
+\sqrt{3}\pi.
+```
+
+Numerically,
+
+```math
+z
+\approx
+5.441398.
+```
+
+and hence
+
+```math
+x
+=
+\frac{z}{2}
+\approx
+2.720699.
+```
+
+An important consequence is that the grid spacing cancels from `z`.
+
+Under this timestep rule, increasing the grid from `128^3` to `256^3` does not by itself double the required Chebyshev order.
+
+The spectral bandwidth doubles, but the timestep is halved.
+
+---
+
+## Analytic Bounds at the Current Value of z
+
+For
+
+```math
+z=\sqrt{3}\pi,
+```
+
+the rigorous analytic remainder bound gives approximately:
+
+| Last retained order `M` | Upper bound on omitted Chebyshev tail |
+| ----------------------: | ------------------------------------: |
+|                      14 |                        `6.10 × 10^-6` |
+|                      15 |                        `1.03 × 10^-6` |
+|                      16 |                        `1.62 × 10^-7` |
+|                      17 |                        `2.43 × 10^-8` |
+|                      18 |                        `3.45 × 10^-9` |
+|                      19 |                       `4.66 × 10^-10` |
+|                      20 |                       `6.00 × 10^-11` |
+|                      21 |                       `7.38 × 10^-12` |
+
+Single-precision floating point has machine epsilon
+
+```math
+\epsilon_{\mathrm{f32}}
+=
+2^{-23}
+\approx
+1.192093\times10^{-7}.
+```
+
+If the goal is only to make the Chebyshev truncation error of a single propagation interval smaller than one `f32` machine epsilon, then
+
+```math
+M=16
+```
+
+is not certified because
+
+```math
+1.62\times10^{-7}
+>
+1.19\times10^{-7}.
+```
+
+The next order,
+
+```math
+M=17,
+```
+
+gives
+
+```math
+2.43\times10^{-8}
+<
+1.19\times10^{-7}.
+```
+
+Therefore
+
+```math
+\boxed{M=17}
+```
+
+is the first order certified by this analytic bound for a one-step truncation error below one `f32` machine epsilon.
+
+Because the expansion contains every term from `J_0` through `J_M`, this corresponds to 18 Bessel coefficients:
+
+```math
+J_0,J_1,\ldots,J_{17}.
+```
+
+---
+
+## Conservative Error Budget Over a Full Lattice Crossing
+
+A stricter criterion can be obtained by assuming that the truncation errors from every propagation interval accumulate linearly in the worst possible direction.
+
+This is intentionally conservative.
+
+For a `128^3` lattice with approximately one lattice-spacing traversal per propagation interval, a full crossing requires approximately 128 intervals.
+
+A sufficient per-step error target would therefore be
+
+```math
+\epsilon_{\mathrm{step}}
+\le
+\frac{\epsilon_{\mathrm{f32}}}{128}.
+```
+
+Numerically,
+
+```math
+\frac{\epsilon_{\mathrm{f32}}}{128}
+\approx
+9.31\times10^{-10}.
+```
+
+The analytic bound gives
+
+```math
+M=18
+\quad\Rightarrow\quad
+3.45\times10^{-9},
+```
+
+which is too large, while
+
+```math
+M=19
+\quad\Rightarrow\quad
+4.66\times10^{-10}.
+```
+
+Therefore the first certified order under this conservative 128-step criterion is
+
+```math
+\boxed{M=19}.
+```
+
+For a `256^3` lattice, the same argument gives
+
+```math
+\epsilon_{\mathrm{step}}
+\le
+\frac{\epsilon_{\mathrm{f32}}}{256}.
+```
+
+Numerically,
+
+```math
+\frac{\epsilon_{\mathrm{f32}}}{256}
+\approx
+4.6566\times10^{-10}.
+```
+
+The analytic bound for `M = 19` is approximately
+
+```math
+4.6642\times10^{-10},
+```
+
+which is extremely close but slightly above this strict threshold.
+
+Therefore the first analytically certified order for the conservative 256-step criterion is
+
+```math
+\boxed{M=20}.
+```
+
+The resulting summary is:
+
+| Criterion                                                   | Certified `M` |
+| ----------------------------------------------------------- | ------------: |
+| One propagation interval below one `f32` epsilon            |            17 |
+| Conservative full 128-step crossing below one `f32` epsilon |            19 |
+| Conservative full 256-step crossing below one `f32` epsilon |            20 |
+
+These values refer only to the Chebyshev truncation error.
+
+They do not represent the total numerical error of the simulation.
+
+---
+
+## Effect of the Vector Potential
+
+The preceding example uses the free Weyl kinetic operator.
+
+For
+
+```math
+H
+=
+v\boldsymbol{\sigma}
+\cdot
+\left(
+\mathbf{k}-\mathbf{A}
+\right),
+```
+
+the vector potential increases the possible spectral width.
+
+A conservative estimate is
+
+```math
+a
+\lesssim
+v
+\left(
+|\mathbf{k}|_{\max}
++
+A_{\max}
+\right),
+```
+
+where
+
+```math
+A_{\max}
+=
+\max_{\mathbf{x}}
+|\mathbf{A}(\mathbf{x})|.
+```
+
+Using the one-lattice-spacing timestep,
+
+```math
+\Delta t
+=
+\frac{\Delta x}{v},
+```
+
+gives approximately
+
+```math
+z
+\lesssim
+\sqrt{3}\pi
++
+A_{\max}\Delta x.
+```
+
+Therefore the required Chebyshev order must ultimately be computed from the actual spectral bound of the Hamiltonian being propagated.
+
+The values `M = 17`, `19`, or `20` should not be hard-coded as universal constants.
+
+If the magnitude of the vector potential increases, then `z` increases and more Bessel/Chebyshev terms will generally be required.
+
+If the Hamiltonian is allowed to become unbounded, for example by literally taking
+
+```math
+A_{\max}\rightarrow\infty,
+```
+
+then no finite Chebyshev order can provide a fixed truncation guarantee.
+
+An ideal reflecting boundary may therefore need to be represented through an appropriate boundary condition rather than an infinite numerical value of `A`.
+
+---
+
+## Planned Implementation Criterion
+
+The eventual propagator should determine its required truncation order from:
+
+```math
+z=a\Delta t
+```
+
+and a requested error tolerance.
+
+For a candidate order `M`, it can evaluate
+
+```math
+B_M(z)
+=
+\frac{
+2x^{M+1}
+}{
+(M+1)!
+\left(
+1-\frac{x}{M+2}
+\right)
+},
+```
+
+where
+
+```math
+x=\frac{|z|}{2}.
+```
+
+The smallest order satisfying
+
+```math
+B_M(z)
+<
+\epsilon_{\mathrm{target}}
+```
+
+can then be selected.
+
+Conceptually:
+
+```text
+spectral bounds of H
+        ↓
+a
+        ↓
+z = a Δt
+        ↓
+choose error tolerance
+        ↓
+evaluate analytic Bessel-tail bound
+        ↓
+increase M until bound < tolerance
+        ↓
+compute only J₀ through J_M
+```
+
+This approach avoids assuming a fixed number of Bessel coefficients and gives the simulation a reproducible numerical criterion for choosing the Chebyshev truncation order.
+
+---
+
+## Important Limitation of This Bound
+
+The Bessel-tail calculation bounds only the truncation of the Chebyshev series.
+
+The total simulation error will also contain contributions from:
+
+```text
+Chebyshev truncation
+        +
+floating-point roundoff
+        +
+FFT roundoff
+        +
+spectral-bound estimation
+        +
+time discretization / frozen-H error
+        +
+spatial representation error
+        +
+boundary-condition error
+```
+
+Therefore, using the full `f32` machine epsilon as the Chebyshev tolerance may eventually be unnecessarily aggressive or insufficiently meaningful.
+
+A practical error budget should be developed after the FFT Hamiltonian and time-dependent vector potential are implemented and measurable.
+
+The analytic bound nevertheless provides a useful guarantee: the Chebyshev truncation error can be made a deliberately controlled and independently testable part of the total numerical error.
